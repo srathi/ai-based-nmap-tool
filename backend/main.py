@@ -27,11 +27,19 @@ async def lifespan(app: FastAPI):
     init_db()
     job_queue = JobQueue()
     worker = ScanWorker(job_queue)
-    worker.start()
+    try:
+        worker.start()
+        logger.info("ScanWorker started")
+    except Exception as e:
+        logger.warning(f"ScanWorker could not start: {e}")
+        worker = None
     yield
     logger.info("Shutting down...")
-    if worker:
-        worker.stop()
+    if worker is not None:
+        try:
+            worker.stop()
+        except Exception:
+            pass
 
 
 app = FastAPI(
