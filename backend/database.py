@@ -35,4 +35,23 @@ def init_db():
     from backend.models.scan import ScanJob, ScanProfile, ScanResult, HostResult, PortResult, ServiceResult
     from backend.models.ai_insight import AIInsight, RiskScore, Recommendation
     from backend.models.audit import AuditEvent
+    from backend.auth.jwt import pwd_context
     Base.metadata.create_all(bind=engine)
+
+    # Create default admin user if not exists
+    from backend.database import SessionLocal
+    db = SessionLocal()
+    try:
+        admin = db.query(User).filter(User.username == "admin").first()
+        if not admin:
+            admin = User(
+                username="admin",
+                email="admin@localhost",
+                hashed_password=pwd_context.hash("admin"),
+                role="admin",
+                is_active=True
+            )
+            db.add(admin)
+            db.commit()
+    finally:
+        db.close()
