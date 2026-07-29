@@ -1,6 +1,10 @@
 {
-  "buildCommand": "pip install -r requirements.txt",
-  "devCommand": "uvicorn backend.main:app --host 0.0.0.0 --port 3000",
-  "installCommand": "pip install -r requirements.txt",
-  "framework": "python"
+  "version": 2,
+  "builds": [
+    { "src": "main.py", "use": "@vercel/python" },
+    { "src": "requirements.txt", "use": "@vercel/python" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "main.py" }
+  ]
 }

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 
@@ -140,5 +140,12 @@ async def health():
 
 
 frontend_dir = DATA_DIR.parent / "frontend"
-if frontend_dir.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+app.mount("/static", StaticFiles(directory=str(frontend_dir / "static")), name="static")
+
+
+@app.get("/")
+async def serve_frontend():
+    index_file = frontend_dir / "index.html"
+    if index_file.exists():
+        return HTMLResponse(content=index_file.read_text(), media_type="text/html")
+    return JSONResponse({"status": "ok", "service": "AI Nmap Scanner", "version": "1.0.0"}, status_code=200)
