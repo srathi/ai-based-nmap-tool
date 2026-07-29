@@ -27,6 +27,14 @@ logger.info("FastAPI imports OK")
 
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "100"))
 
+# Initialize database at import time (for serverless cold starts)
+try:
+    from backend.database import init_db
+    init_db()
+    logger.info("Database initialized at import time")
+except Exception as e:
+    logger.warning(f"Database init failed: {e}")
+
 worker = None
 
 
