@@ -7,13 +7,18 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+# Ensure project root is in Python path for Vercel
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger("vercel-main")
+logger.info("Starting Vercel entrypoint...")
+
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.responses import Response
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("uvicorn")
+logger.info("FastAPI imports OK")
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "/tmp/data"))
 DATA_DIR.mkdir(exist_ok=True)
@@ -25,10 +30,11 @@ worker = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global worker
-    logger.info("Starting up...")
+    logger.info("Starting up lifespan...")
     try:
         from backend.database import init_db
         init_db()
+        logger.info("Database initialized")
     except Exception as e:
         logger.warning(f"Database init failed: {e}")
     try:
@@ -110,6 +116,7 @@ try:
     app.include_router(scans_router)
     app.include_router(ai_router)
     app.include_router(exports_router)
+    logger.info("API routers loaded")
 except Exception as e:
     logger.warning(f"Could not import API routers: {e}")
 
@@ -165,4 +172,5 @@ async def serve_frontend():
     return JSONResponse({"status": "ok", "service": "AI Nmap Scanner", "version": "1.0.0"})
 
 if STATIC_DIR.exists():
+    from fastapi.staticfiles import StaticFiles
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
