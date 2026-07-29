@@ -20,6 +20,14 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.responses import Response
 logger.info("FastAPI imports OK")
 
+# Initialize DB at import time (for serverless cold starts)
+try:
+    from backend.database import init_db
+    init_db()
+    logger.info("Database initialized at import time")
+except Exception as e:
+    logger.warning(f"Database init at import failed: {e}")
+
 DATA_DIR = Path(os.getenv("DATA_DIR", "/tmp/data"))
 DATA_DIR.mkdir(exist_ok=True)
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "100"))
