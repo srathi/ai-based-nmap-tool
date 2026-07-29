@@ -10,6 +10,11 @@ from pathlib import Path
 # Ensure project root is in Python path for Vercel
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Set database path BEFORE any backend imports (engine is created at import time)
+DATA_DIR = Path(os.getenv("DATA_DIR", "/tmp/data"))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+os.environ["DATABASE_URL"] = f"sqlite:///{DATA_DIR}/scanner.db"
+
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("vercel-main")
 logger.info("Starting Vercel entrypoint...")
@@ -20,16 +25,6 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.responses import Response
 logger.info("FastAPI imports OK")
 
-# Initialize DB at import time (for serverless cold starts)
-try:
-    from backend.database import init_db
-    init_db()
-    logger.info("Database initialized at import time")
-except Exception as e:
-    logger.warning(f"Database init at import failed: {e}")
-
-DATA_DIR = Path(os.getenv("DATA_DIR", "/tmp/data"))
-DATA_DIR.mkdir(exist_ok=True)
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "100"))
 
 worker = None
