@@ -24,15 +24,15 @@ RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "100"))
 
 
 def make_jwt(user_id: int, role: str) -> str:
-    import jwt as pyjwt
+    from jose import jwt
     secret = os.getenv("SECRET_KEY", "change-me-in-production-insecure-default")
-    return pyjwt.encode({"sub": str(user_id), "role": role, "exp": datetime.now(timezone.utc) + timedelta(days=1)}, secret, algorithm="HS256")
+    return jwt.encode({"sub": str(user_id), "role": role, "exp": datetime.now(timezone.utc) + timedelta(days=1)}, secret, algorithm="HS256")
 
 
 def check_jwt(token: str) -> dict:
-    import jwt as pyjwt
+    from jose import jwt
     secret = os.getenv("SECRET_KEY", "change-me-in-production-insecure-default")
-    return pyjwt.decode(token, secret, algorithms=["HS256"])
+    return jwt.decode(token, secret, algorithms=["HS256"])
 
 
 ADMIN_USER = "admin"
