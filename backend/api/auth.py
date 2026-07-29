@@ -84,8 +84,6 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == req.username).first()
     if not user:
         if req.username == "admin" and req.password == "admin":
-            from passlib.context import CryptContext
-            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
             hashed = pwd_context.hash("admin")
             user = User(username="admin", email="admin@local", hashed_password=hashed, role="admin")
             db.add(user)
