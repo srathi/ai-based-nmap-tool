@@ -35,7 +35,7 @@ def init_db():
     from backend.models.scan import ScanJob, ScanProfile, ScanResult, HostResult, PortResult, ServiceResult
     from backend.models.ai_insight import AIInsight, RiskScore, Recommendation
     from backend.models.audit import AuditEvent
-    from backend.auth.jwt import pwd_context
+    from backend.api.auth import pwd_context
     Base.metadata.create_all(bind=engine)
 
     # Create default admin user if not exists
