@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NmapAI - AI-Assisted Network Scanner</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon">&#9762;</span>
+          <span class="logo-text">NmapAI</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#dashboard" class="nav-item active" data-view="dashboard">
+          <span class="nav-icon">&#9632;</span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="#scans" class="nav-item" data-view="scans">
+          <span class="nav-icon">&#9881;</span>
+          <span class="nav-label">Scans</span>
+        </a>
+        <a href="#targets" class="nav-item" data-view="targets">
+          <span class="nav-icon">&#9733;</span>
+          <span class="nav-label">Targets</span>
+        </a>
+        <a href="#profiles" class="nav-item" data-view="profiles">
+          <span class="nav-icon">&#9881;</span>
+          <span class="nav-label">Profiles</span>
+        </a>
+        <a href="#ai-insights" class="nav-item" data-view="ai-insights">
+          <span class="nav-icon">&#9889;</span>
+          <span class="nav-label">AI Insights</span>
+        </a>
+        <a href="#reports" class="nav-item" data-view="reports">
+          <span class="nav-icon">&#9776;</span>
+          <span class="nav-label">Reports</span>
+        </a>
+        <a href="#admin" class="nav-item" data-view="admin">
+          <span class="nav-icon">&#9733;</span>
+          <span class="nav-label">Admin</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info" id="userInfo">
+          <div class="user-avatar"></div>
+          <div class="user-details">
+            <span class="user-name" id="userName">Guest</span>
+            <span class="user-role" id="userRole">Not logged in</span>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-outline" id="loginBtn" onclick="app.showLogin()">Login</button>
+        <button class="btn btn-sm btn-outline" id="logoutBtn" style="display:none" onclick="app.logout()">Logout</button>
+      </div>
+    </aside>
+
+    <main id="main-content" class="main-content">
+      <div id="view-container" class="view-container">
+        <div class="loading-screen" id="loadingScreen">
+          <div class="spinner"></div>
+          <p>Loading NmapAI...</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="modal-overlay" class="modal-overlay" style="display:none">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">Modal</h3>
+        <button class="modal-close" onclick="app.closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
