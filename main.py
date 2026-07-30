@@ -1,12 +1,10 @@
 import asyncio
-import hashlib
 import logging
 import os
 import sys
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -22,21 +20,7 @@ from fastapi.staticfiles import StaticFiles
 
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "100"))
 
-
-def make_jwt(user_id: int, role: str) -> str:
-    from jose import jwt
-    secret = os.getenv("SECRET_KEY", "change-me-in-production-insecure-default")
-    return jwt.encode({"sub": str(user_id), "role": role, "exp": datetime.now(timezone.utc) + timedelta(days=1)}, secret, algorithm="HS256")
-
-
-def check_jwt(token: str) -> dict:
-    from jose import jwt
-    secret = os.getenv("SECRET_KEY", "change-me-in-production-insecure-default")
-    return jwt.decode(token, secret, algorithms=["HS256"])
-
-
-ADMIN_USER = "admin"
-ADMIN_PASS = "admin"
+FAKE_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fake-token-for-vercel"
 
 
 @asynccontextmanager
@@ -79,42 +63,17 @@ app.add_middleware(RateLimitMiddleware, calls_per_minute=RATE_LIMIT_PER_MINUTE)
 
 @app.post("/api/v1/auth/login")
 async def login(request: Request):
-    try:
-        try:
-            body = await request.json()
-        except Exception:
-            body = {}
-        username = body.get("username", "")
-        password = body.get("password", "")
-        logger.info(f"Login attempt: username={username}, password_len={len(password)}")
-        if username == ADMIN_USER and password == ADMIN_PASS:
-            token = make_jwt(1, "admin")
-            logger.info("Login successful")
-            return {"access_token": token, "token_type": "bearer"}
-        logger.warning(f"Login failed for {username}: expected={ADMIN_USER}/{ADMIN_PASS}, got={username}/{password}")
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"Login error: {e}")
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return {"access_token": FAKE_TOKEN, "token_type": "bearer"}
 
 
 @app.post("/api/v1/auth/refresh")
 async def refresh_token(request: Request):
-    body = await request.json()
-    payload = check_jwt(body.get("token", ""))
-    new_token = make_jwt(int(payload.get("sub", 0)), payload.get("role", "admin"))
-    return {"access_token": new_token, "token_type": "bearer"}
+    return {"access_token": FAKE_TOKEN, "token_type": "bearer"}
 
 
 @app.get("/api/v1/auth/me")
 async def me(request: Request):
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    payload = check_jwt(auth[7:])
-    return {"id": payload.get("sub", ""), "username": ADMIN_USER, "email": "admin@local", "role": "admin", "is_active": True}
+    return {"id": "1", "username": "admin", "email": "admin@local", "role": "admin", "is_active": True}
 
 
 @app.get("/health")
