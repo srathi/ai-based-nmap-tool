@@ -36,7 +36,7 @@ def check_jwt(token: str) -> dict:
 
 
 ADMIN_USER = "admin"
-ADMIN_PASS_SHA = hashlib.sha256("admin".encode()).hexdigest()
+ADMIN_PASS = "admin"
 
 
 @asynccontextmanager
@@ -80,15 +80,18 @@ app.add_middleware(RateLimitMiddleware, calls_per_minute=RATE_LIMIT_PER_MINUTE)
 @app.post("/api/v1/auth/login")
 async def login(request: Request):
     try:
-        body = await request.json()
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
         username = body.get("username", "")
         password = body.get("password", "")
-        logger.info(f"Login attempt: username={username}")
-        if username == ADMIN_USER and hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASS_SHA:
+        logger.info(f"Login attempt: username={username}, password_len={len(password)}")
+        if username == ADMIN_USER and password == ADMIN_PASS:
             token = make_jwt(1, "admin")
             logger.info("Login successful")
             return {"access_token": token, "token_type": "bearer"}
-        logger.warning(f"Login failed for {username}")
+        logger.warning(f"Login failed for {username}: expected={ADMIN_USER}/{ADMIN_PASS}, got={username}/{password}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     except HTTPException:
         raise
@@ -117,6 +120,16 @@ async def me(request: Request):
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "AI Nmap Scanner", "version": "1.0.0"}
+
+
+@app.get("/debug")
+async def debug():
+    return {
+        "python": sys.version,
+        "working_dir": os.getcwd(),
+        "files": os.listdir("."),
+        "has_frontend": FRONTEND_DIR.exists(),
+    }
 
 
 FRONTEND_DIR = Path(__file__).parent / "frontend"
