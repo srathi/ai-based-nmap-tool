@@ -153,6 +153,34 @@ class LLMProvider:
         user_prompt = f"Question: {question}\n\nScan data:\n{self._format_scan_data(scan_data)}"
         return self._call(system_prompt, user_prompt, max_tokens=1024)
 
+    def stream_answer(self, question, scan_data):
+        if not self.client:
+            return
+        system_prompt = (
+            "You are a network security expert. Answer the user's question about "
+            "the provided Nmap scan data. Be concise and accurate. "
+            "If the question cannot be answered from the data, say so."
+        )
+        user_prompt = f"Question: {question}\n\nScan data:\n{self._format_scan_data(scan_data)}"
+        try:
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                stream=True,
+                temperature=0.1,
+                max_tokens=1024,
+            )
+            for chunk in stream:
+                delta = chunk.choices[0].delta if chunk.choices else None
+                if delta and delta.content:
+                    yield delta.content
+        except Exception as e:
+            print(f"LLM stream failed: {e}")
+            yield f"\n[Error: {e}]"
+
     def compare(self, scan1, scan2):
         system_prompt = (
             "You are a network security analyst comparing two Nmap scans. "

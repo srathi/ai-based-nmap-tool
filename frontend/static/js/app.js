@@ -1095,6 +1095,7 @@ class App {
           <div style="display:flex;gap:8px">
             <input type="text" class="form-input" id="aiQueryInput" placeholder="e.g. Which ports are vulnerable?" onkeydown="if(event.key==='Enter')app._askQuestion()">
             <button class="btn btn-primary" onclick="app._askQuestion()">Ask</button>
+            <button class="btn btn-secondary" onclick="app._openChat()">&#128172; Chat</button>
           </div>
         </div>
         <div id="aiInsightsOutput" class="empty-state" style="padding:20px">
@@ -1140,17 +1141,45 @@ class App {
       switch (action) {
         case 'summarize':
           result = await this.api.summarize(scanId);
-          output.innerHTML = `<div class="insight-card"><div class="insight-header"><span class="insight-icon">&#9889;</span><span class="insight-title">Summary</span></div><div class="insight-body">${this._escapeHtml(result.summary || JSON.stringify(result))}</div></div>`;
+          const riskBadge = result.risk_level ? `<span class="risk-badge risk-${result.risk_level}">${result.risk_level.toUpperCase()}</span>` : '';
+          const findings = (result.key_findings || []).length
+            ? `<ul class="findings-list">${result.key_findings.map(f => `<li>${this._escapeHtml(f)}</li>`).join('')}</ul>`
+            : '';
+          const meta = (result.host_summary || result.port_summary)
+            ? `<div class="summary-meta">${this._escapeHtml(result.host_summary || '')} ${this._escapeHtml(result.port_summary || '')}</div>`
+            : '';
+          output.innerHTML = `<div class="insight-card">
+            <div class="insight-header"><span class="insight-icon">&#9889;</span><span class="insight-title">Summary ${riskBadge}</span></div>
+            <div class="insight-body"><p style="margin:0 0 12px 0">${this._escapeHtml(result.summary || '')}</p>${meta}${findings}</div>
+          </div>`;
           break;
         case 'risk':
           result = await this.api.riskScore(scanId);
           const score = result.risk_score || result.score || 0;
           const level = score < 30 ? 'low' : score < 60 ? 'medium' : score < 85 ? 'high' : 'critical';
-          output.innerHTML = `<div class="risk-meter"><div class="risk-gauge risk-${level}"><div class="risk-score risk-${level}">${score}</div></div><div class="risk-label risk-${level}">${level.toUpperCase()} RISK</div><div style="color:var(--text-secondary);font-size:13px">${this._escapeHtml(result.reason || '')}</div></div>`;
+          const factors = (result.factors || []).length
+            ? `<div style="margin-top:12px"><strong>Factors:</strong><ul style="margin:4px 0 0 16px;padding:0">${result.factors.map(f => `<li style="font-size:13px;color:var(--text-secondary)">${this._escapeHtml(f)}</li>`).join('')}</ul></div>`
+            : '';
+          output.innerHTML = `<div class="risk-meter"><div class="risk-gauge risk-${level}"><div class="risk-score risk-${level}">${score}</div></div><div class="risk-label risk-${level}">${level.toUpperCase()} RISK</div><div style="color:var(--text-secondary);font-size:13px;margin-top:8px">${this._escapeHtml(result.reason || '')}</div>${factors}</div>`;
           break;
         case 'recommend':
           result = await this.api.recommend(scanId);
-          output.innerHTML = `<div class="insight-card"><div class="insight-header"><span class="insight-icon">&#9889;</span><span class="insight-title">Recommendations</span></div><div class="insight-body">${this._escapeHtml(result.recommendations || result.summary || JSON.stringify(result))}</div></div>`;
+          if (Array.isArray(result.recommendations) && result.recommendations.length) {
+            const cards = result.recommendations.map(r => {
+              const p = r.priority || 0;
+              const prioClass = p >= 5 ? 'critical' : p >= 4 ? 'high' : p >= 3 ? 'medium' : 'low';
+              const cat = r.category || '';
+              const title = r.title || r;
+              const desc = r.description || '';
+              return `<div class="rec-card rec-${prioClass}">
+                <div class="rec-priority rec-${prioClass}">${p}</div>
+                <div class="rec-content"><strong>${this._escapeHtml(title)}</strong>${desc ? `<div style="font-size:13px;color:var(--text-secondary);margin-top:4px">${this._escapeHtml(desc)}</div>` : ''}${cat ? `<div style="font-size:11px;color:var(--text-tertiary);margin-top:4px">${this._escapeHtml(cat)}</div>` : ''}</div>
+              </div>`;
+            }).join('');
+            output.innerHTML = `<div class="insight-card"><div class="insight-header"><span class="insight-icon">&#9889;</span><span class="insight-title">Recommendations (${result.recommendations.length})</span></div><div class="insight-body" style="padding:8px 16px">${cards}</div></div>`;
+          } else {
+            output.innerHTML = `<div class="insight-card"><div class="insight-header"><span class="insight-icon">&#9889;</span><span class="insight-title">Recommendations</span></div><div class="insight-body">${this._escapeHtml(result.summary || result.recommendations || JSON.stringify(result))}</div></div>`;
+          }
           break;
         case 'insights':
           result = await this.api.getAIInsights(scanId);
@@ -1173,9 +1202,16 @@ class App {
 
     try {
       const result = await this.api.query(query, scanId);
+      const conf = result.confidence || 0;
+      const confPct = Math.round(conf * 100);
+      const confColor = conf >= 0.8 ? 'var(--success)' : conf >= 0.5 ? 'var(--warning)' : 'var(--danger)';
+      const confBar = `<div style="margin-top:12px;font-size:12px;color:var(--text-secondary)">Confidence: ${confPct}% <div style="background:var(--bg-tertiary);border-radius:4px;height:6px;margin-top:2px;width:200px;max-width:100%"><div style="background:${confColor};border-radius:4px;height:6px;width:${confPct}%;transition:width 0.3s"></div></div></div>`;
+      const evidence = (result.evidence_refs || []).length
+        ? `<div style="margin-top:8px;font-size:11px;color:var(--text-tertiary)">Evidence: ${result.evidence_refs.map(r => `<code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px">${this._escapeHtml(r)}</code>`).join(' ')}</div>`
+        : '';
       output.innerHTML = `<div class="insight-card">
         <div class="insight-header"><span class="insight-icon">&#9889;</span><span class="insight-title">Q: ${this._escapeHtml(query)}</span></div>
-        <div class="insight-body">${this._escapeHtml(result.answer || result.response || JSON.stringify(result))}</div>
+        <div class="insight-body">${this._escapeHtml(result.answer || result.response || JSON.stringify(result))}${confBar}${evidence}</div>
       </div>`;
     } catch (e) {
       output.innerHTML = `<div class="empty-state"><div class="empty-state-icon">&#9888;</div><div class="empty-state-text">${this._escapeHtml(e.message)}</div></div>`;
@@ -1193,13 +1229,117 @@ class App {
 
     try {
       const result = await this.api.compare(id1, id2);
+      const newHosts = result.new_hosts || [];
+      const removedHosts = result.removed_hosts || [];
+      const newPorts = result.new_ports || [];
+      const removedPorts = result.removed_ports || [];
+      const newConcerns = result.new_concerns || [];
+      const resolvedConcerns = result.resolved_concerns || [];
+
+      let diffs = '';
+      if (newHosts.length || removedHosts.length || newPorts.length || removedPorts.length) {
+        const items = [];
+        if (newHosts.length) items.push(`<span class="diff-badge diff-added">+${newHosts.length} hosts</span>`);
+        if (removedHosts.length) items.push(`<span class="diff-badge diff-removed">-${removedHosts.length} hosts</span>`);
+        if (newPorts.length) items.push(`<span class="diff-badge diff-added">+${newPorts.length} ports</span>`);
+        if (removedPorts.length) items.push(`<span class="diff-badge diff-removed">-${removedPorts.length} ports</span>`);
+        diffs = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${items.join('')}</div>`;
+      }
+      let concerns = '';
+      if (newConcerns.length) concerns += `<div style="margin-top:8px"><strong style="color:var(--danger);font-size:13px">New Concerns:</strong><ul style="margin:4px 0 0 16px">${newConcerns.map(c => `<li style="font-size:13px;color:var(--text-secondary)">${this._escapeHtml(c)}</li>`).join('')}</ul></div>`;
+      if (resolvedConcerns.length) concerns += `<div style="margin-top:8px"><strong style="color:var(--success);font-size:13px">Resolved Concerns:</strong><ul style="margin:4px 0 0 16px">${resolvedConcerns.map(c => `<li style="font-size:13px;color:var(--text-secondary)">${this._escapeHtml(c)}</li>`).join('')}</ul></div>`;
+
+      const narrative = result.comparison || result.detail || result.summary || '';
       output.innerHTML = `<div class="insight-card">
         <div class="insight-header"><span class="insight-icon">&#9889;</span><span class="insight-title">Comparison: Scan #${id1} vs #${id2}</span></div>
-        <div class="insight-body">${this._escapeHtml(result.comparison || result.detail || JSON.stringify(result))}</div>
+        <div class="insight-body">${diffs}<p style="margin:0;line-height:1.5">${this._escapeHtml(narrative)}</p>${concerns}</div>
       </div>`;
     } catch (e) {
       output.innerHTML = `<div class="empty-state"><div class="empty-state-icon">&#9888;</div><div class="empty-state-text">${this._escapeHtml(e.message)}</div></div>`;
     }
+  }
+
+  _openChat() {
+    const scanId = this._insightScanId;
+    if (!scanId) { this.showToast('Select a scan first', 'warning'); return; }
+    if (document.getElementById('chatModal')) return;
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'chatModal';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `
+      <div class="modal" style="min-width:600px;max-width:700px;height:70vh;display:flex;flex-direction:column">
+        <div class="modal-header">
+          <h3>&#128172; Chat with AI — Scan #${scanId}</h3>
+          <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+        </div>
+        <div class="modal-body" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column" id="chatMessages">
+          <div style="text-align:center;color:var(--text-muted);font-size:13px;padding:20px">Ask anything about this scan</div>
+        </div>
+        <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px">
+          <input type="text" id="chatInput" class="form-input" placeholder="Ask a question..." style="flex:1"
+            onkeydown="if(event.key==='Enter')app._sendChatMessage()">
+          <button class="btn btn-primary" onclick="app._sendChatMessage()">Send</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('chatInput')?.focus(), 100);
+  }
+
+  async _sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const msgContainer = document.getElementById('chatMessages');
+    const scanId = this._insightScanId;
+    const text = input.value.trim();
+    if (!text || !scanId) return;
+    input.value = '';
+    input.disabled = true;
+
+    const userMsg = document.createElement('div');
+    userMsg.style = 'align-self:flex-end;background:var(--accent-dim);color:var(--accent);padding:8px 14px;border-radius:12px 12px 4px 12px;margin-bottom:12px;max-width:80%;font-size:13px';
+    userMsg.textContent = text;
+    msgContainer.appendChild(userMsg);
+
+    const botMsg = document.createElement('div');
+    botMsg.style = 'align-self:flex-start;background:var(--bg-secondary);padding:8px 14px;border-radius:12px 12px 12px 4px;margin-bottom:12px;max-width:80%;font-size:13px;color:var(--text-secondary);white-space:pre-wrap';
+    botMsg.textContent = '...';
+    msgContainer.appendChild(botMsg);
+    msgContainer.scrollTop = msgContainer.scrollHeight;
+
+    try {
+      const resp = await fetch(`/api/v1/ai/query/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('nmapai_token') || ''}` },
+        body: JSON.stringify({ query: text, scan_id: scanId }),
+      });
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      botMsg.textContent = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.done) break;
+              if (data.token) botMsg.textContent += data.token;
+            } catch (e) { /* skip parse errors */ }
+          }
+        }
+        msgContainer.scrollTop = msgContainer.scrollHeight;
+      }
+    } catch (e) {
+      botMsg.textContent = `Error: ${e.message}`;
+    }
+    input.disabled = false;
+    input.focus();
   }
 
   async _loadAIInsights() {

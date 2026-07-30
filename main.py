@@ -15,7 +15,7 @@ logger.info("Starting Vercel entrypoint...")
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "100"))
@@ -205,6 +205,43 @@ async def ai_query(request: Request):
         return {"answer": result.get("answer", ""), "confidence": result.get("confidence", 0.0), "evidence_refs": result.get("evidence_refs", [])}
     hosts = data.get("hosts", [])
     return {"answer": f"Scan has {len(hosts)} host(s). Use GROQ_API_KEY for AI analysis.", "confidence": 0.5, "evidence_refs": []}
+
+
+async def stream_ai_response(question: str, scan_id: int):
+    data = get_scan_data(scan_id)
+    if AI_MODULES_LOADED:
+        from backend.ai_service.llm_provider import LLMProvider
+        llm = LLMProvider()
+        if llm.client:
+            async for token in _async_wrap_stream(llm.stream_answer(question, data)):
+                yield f"data: {json.dumps({'token': token})}\n\n"
+            yield f"data: {json.dumps({'done': True})}\n\n"
+            return
+    hosts = data.get("hosts", [])
+    fallback = f"Scan has {len(hosts)} host(s). Use GROQ_API_KEY for streaming AI analysis."
+    yield f"data: {json.dumps({'token': fallback})}\n\n"
+    yield f"data: {json.dumps({'done': True})}\n\n"
+
+
+def _async_wrap_stream(gen):
+    for item in gen:
+        yield item
+
+
+@app.post("/api/v1/ai/query/stream")
+async def ai_query_stream(request: Request):
+    body = await request.json()
+    question = body.get("query") or body.get("question", "")
+    scan_id = body.get("scan_id") or body.get("scan_job_id", 0)
+    return StreamingResponse(
+        stream_ai_response(question, scan_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.get("/api/v1/ai/insights/{scan_id}")
