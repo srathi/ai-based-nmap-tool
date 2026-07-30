@@ -18,8 +18,16 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-AI_PROVIDER = os.getenv("AI_PROVIDER", "rule")
+_ai_provider_env = os.getenv("AI_PROVIDER")
+AI_PROVIDER = _ai_provider_env or "rule"
 AI_MODEL = os.getenv("AI_MODEL", "gpt-4o-mini")
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq")
+
+if GROQ_API_KEY and not _ai_provider_env:
+    AI_PROVIDER = "openai"
 
 SCAN_TIMEOUT = int(os.getenv("SCAN_TIMEOUT", "600"))
 MAX_CONCURRENT_SCANS = int(os.getenv("MAX_CONCURRENT_SCANS", "3"))

@@ -1,8 +1,20 @@
 class ScanRecommender:
     def __init__(self, provider="rule"):
         self.provider = provider
+        self._llm = None
+
+    def _get_llm(self):
+        if self._llm is None:
+            from backend.ai_service.llm_provider import LLMProvider
+            self._llm = LLMProvider()
+        return self._llm
 
     def recommend(self, scan_result, risk_scores=None):
+        if self.provider == "openai":
+            return self._openai_recommend(scan_result)
+        return self._rule_based_recommend(scan_result)
+
+    def _rule_based_recommend(self, scan_result):
         recs = []
         seen = set()
         for h in scan_result.get("hosts", []):
@@ -57,3 +69,10 @@ class ScanRecommender:
             })
         recs.sort(key=lambda x: -x["priority"])
         return recs
+
+    def _openai_recommend(self, scan_result):
+        llm = self._get_llm()
+        resp = llm.recommend(scan_result)
+        if resp:
+            return resp.get("recommendations", [])
+        return self._rule_based_recommend(scan_result)

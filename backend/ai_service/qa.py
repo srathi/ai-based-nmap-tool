@@ -3,6 +3,13 @@ import re
 class ScanQA:
     def __init__(self, provider="rule"):
         self.provider = provider
+        self._llm = None
+
+    def _get_llm(self):
+        if self._llm is None:
+            from backend.ai_service.llm_provider import LLMProvider
+            self._llm = LLMProvider()
+        return self._llm
 
     def answer(self, question, scan_result, scan_job=None):
         if self.provider == "openai":
@@ -74,4 +81,12 @@ class ScanQA:
         }
 
     def _openai_answer(self, question, result):
+        llm = self._get_llm()
+        resp = llm.answer(question, result)
+        if resp:
+            return {
+                "answer": resp.get("answer", ""),
+                "confidence": resp.get("confidence", 0.9),
+                "evidence_refs": [f"scan_job:{result.get('scan_job_id')}"]
+            }
         return self._rule_based_answer(question, result)

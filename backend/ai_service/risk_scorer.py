@@ -1,6 +1,13 @@
 class RiskScorer:
     def __init__(self, provider="rule"):
         self.provider = provider
+        self._llm = None
+
+    def _get_llm(self):
+        if self._llm is None:
+            from backend.ai_service.llm_provider import LLMProvider
+            self._llm = LLMProvider()
+        return self._llm
 
     def score_scan(self, scan_result):
         if self.provider == "openai":
@@ -63,4 +70,16 @@ class RiskScorer:
         return scores
 
     def _openai_scoring(self, result):
+        llm = self._get_llm()
+        resp = llm.risk_score(result)
+        if resp:
+            risk_score = min(100, max(0, int(resp.get("risk_score", 50))))
+            return {
+                "risk_score": risk_score,
+                "score": risk_score,
+                "risk_level": resp.get("risk_level", "medium"),
+                "reason": resp.get("reason", ""),
+                "factors": resp.get("factors", []),
+                "details": resp
+            }
         return self._rule_based_scoring(result)

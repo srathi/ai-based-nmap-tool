@@ -1,8 +1,20 @@
 class ScanComparator:
     def __init__(self, provider="rule"):
         self.provider = provider
+        self._llm = None
+
+    def _get_llm(self):
+        if self._llm is None:
+            from backend.ai_service.llm_provider import LLMProvider
+            self._llm = LLMProvider()
+        return self._llm
 
     def compare(self, scan_result_1, scan_result_2):
+        if self.provider == "openai":
+            return self._openai_compare(scan_result_1, scan_result_2)
+        return self._rule_based_compare(scan_result_1, scan_result_2)
+
+    def _rule_based_compare(self, scan_result_1, scan_result_2):
         hosts1 = {h.get("ip"): h for h in scan_result_1.get("hosts", [])}
         hosts2 = {h.get("ip"): h for h in scan_result_2.get("hosts", [])}
         ips1 = set(hosts1.keys())
@@ -33,5 +45,19 @@ class ScanComparator:
             "new_ports": new_ports,
             "removed_ports": removed_ports,
             "changed_services": changed_services,
-            "summary": summary
+            "summary": summary,
+            "detail": summary,
+            "comparison": summary
         }
+
+    def _openai_compare(self, scan_result_1, scan_result_2):
+        llm = self._get_llm()
+        resp = llm.compare(scan_result_1, scan_result_2)
+        if resp:
+            base = self._rule_based_compare(scan_result_1, scan_result_2)
+            base["comparison"] = resp.get("comparison", base["summary"])
+            base["detail"] = resp.get("comparison", base["summary"])
+            base["new_concerns"] = resp.get("new_concerns", [])
+            base["resolved_concerns"] = resp.get("resolved_concerns", [])
+            return base
+        return self._rule_based_compare(scan_result_1, scan_result_2)

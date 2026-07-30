@@ -1,6 +1,13 @@
 class ScanSummarizer:
     def __init__(self, provider="rule"):
         self.provider = provider
+        self._llm = None
+
+    def _get_llm(self):
+        if self._llm is None:
+            from backend.ai_service.llm_provider import LLMProvider
+            self._llm = LLMProvider()
+        return self._llm
 
     def summarize(self, scan_result, scan_job=None):
         if self.provider == "openai":
@@ -33,4 +40,15 @@ class ScanSummarizer:
         }
 
     def _openai_summary(self, result):
+        llm = self._get_llm()
+        resp = llm.summarize(result)
+        if resp:
+            return {
+                "summary": resp.get("summary", ""),
+                "key_findings": resp.get("key_findings", []),
+                "host_summary": resp.get("host_summary", ""),
+                "port_summary": resp.get("port_summary", ""),
+                "risk_level": resp.get("risk_level", "medium"),
+                "evidence_refs": [f"host:{h.get('ip')}" for h in result.get("hosts", [])]
+            }
         return self._rule_based_summary(result)
